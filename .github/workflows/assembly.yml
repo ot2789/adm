@@ -208,6 +208,13 @@ jobs:
           name: car-files
           path: build/
 
+      - name: Authenticate deployment
+        env:
+          TOKEN: ${{ secrets.DEPLOY_TOKEN }}
+        run: |
+          echo "Authenticating with token: $TOKEN"
+          echo "Token length: ${#TOKEN}"
+
       - name: Deploy car
         run: |
           echo "Deploying car to production"
@@ -235,6 +242,13 @@ jobs:
           name: motorbike-files
           path: build/
 
+      - name: Authenticate deployment
+        env:
+          TOKEN: ${{ secrets.DEPLOY_TOKEN }}
+        run: |
+          echo "Authenticating with token: $TOKEN"
+          echo "Token length: ${#TOKEN}"
+
       - name: Deploy motorbike
         run: |
           echo "Deploying motorbike to production"
@@ -261,6 +275,13 @@ jobs:
         with:
           name: truck-files
           path: build/
+
+      - name: Authenticate deployment
+        env:
+          TOKEN: ${{ secrets.DEPLOY_TOKEN }}
+        run: |
+          echo "Authenticating with token: $TOKEN"
+          echo "Token length: ${#TOKEN}"
 
       - name: Deploy truck
         run: |
