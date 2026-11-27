@@ -208,7 +208,6 @@ jobs:
     needs: [test_car, test_motorbike, test_truck]
     runs-on: ubuntu-latest
     continue-on-error: true
-    if: needs.test_car.result == 'passed'
     steps:
       - name: Download all artifacts
         uses: actions/download-artifact@v7
