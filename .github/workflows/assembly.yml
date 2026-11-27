@@ -110,10 +110,23 @@ jobs:
 
       - name: Test car
         run: |
-          test -f build/car.txt
-          grep "Engine" build/car.txt
-          grep "car" build/spare_parts_car.txt
-          echo "Car tests passed!"
+          mkdir -p results
+          check() {
+            if "${@:2}"; then result=pass; else result=fail; fi
+            echo "| Car | $1 | $result |" >> results/car.md
+          }
+          check "car.txt exists" test -f build/car.txt
+          check "Engine in car.txt" grep -q "Engine" build/car.txt
+          check "spare parts list" grep -q "car" build/spare_parts_car.txt
+          cat results/car.md
+          ! grep -qF "| fail |" results/car.md
+
+      - name: Upload car test results
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: test-results-car
+          path: results/
 
   test_motorbike:
     needs: build_motorbike
@@ -127,10 +140,23 @@ jobs:
 
       - name: Test motorbike
         run: |
-          test -f build/motorbike.txt
-          grep "Fuel Tank" build/motorbike.txt
-          grep "motorbike" build/spare_parts_motorbike.txt
-          echo "Motorbike tests passed!"
+          mkdir -p results
+          check() {
+            if "${@:2}"; then result=pass; else result=fail; fi
+            echo "| Motorbike | $1 | $result |" >> results/motorbike.md
+          }
+          check "motorbike.txt exists" test -f build/motorbike.txt
+          check "Fuel Tank in motorbike.txt" grep -q "Fuel Tank" build/motorbike.txt
+          check "spare parts list" grep -q "motorbike" build/spare_parts_motorbike.txt
+          cat results/motorbike.md
+          ! grep -qF "| fail |" results/motorbike.md
+
+      - name: Upload motorbike test results
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: test-results-motorbike
+          path: results/
 
   test_truck:
     needs: build_truck
@@ -144,10 +170,23 @@ jobs:
 
       - name: Test truck
         run: |
-          test -f build/truck.txt
-          grep "Cargo Bed" build/truck.txt
-          grep "truck" build/spare_parts_truck.txt
-          echo "Truck tests passed!"
+          mkdir -p results
+          check() {
+            if "${@:2}"; then result=pass; else result=fail; fi
+            echo "| Truck | $1 | $result |" >> results/truck.md
+          }
+          check "truck.txt exists" test -f build/truck.txt
+          check "Cargo Bed in truck.txt" grep -q "Cargo Bed" build/truck.txt
+          check "spare parts list" grep -q "truck" build/spare_parts_truck.txt
+          cat results/truck.md
+          ! grep -qF "| fail |" results/truck.md
+
+      - name: Upload truck test results
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: test-results-truck
+          path: results/
 
   test_all:
     needs: [build_car, build_motorbike, build_truck]
@@ -237,3 +276,42 @@ jobs:
           name: truck-files-failure
           path: build/truck.txt
           retention-days: 3
+
+  quality_report:
+    needs: [build_car, build_motorbike, build_truck, test_car, test_motorbike, test_truck, test_all, deploy_car, deploy_motorbike, deploy_truck]
+    if: always()
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - name: Download test results
+        uses: actions/download-artifact@v7
+        with:
+          pattern: test-results-*
+          merge-multiple: true
+          path: results/
+
+      - name: Write the pipeline summary
+        env:
+          BUILD_CAR: ${{ needs.build_car.result }}
+          BUILD_MOTORBIKE: ${{ needs.build_motorbike.result }}
+          BUILD_TRUCK: ${{ needs.build_truck.result }}
+          TEST_CAR: ${{ needs.test_car.result }}
+          TEST_MOTORBIKE: ${{ needs.test_motorbike.result }}
+          TEST_TRUCK: ${{ needs.test_truck.result }}
+          DEPLOY_CAR: ${{ needs.deploy_car.result }}
+          DEPLOY_MOTORBIKE: ${{ needs.deploy_motorbike.result }}
+          DEPLOY_TRUCK: ${{ needs.deploy_truck.result }}
+          TEST_ALL: ${{ needs.test_all.result }}
+        run: |
+          echo "## Quality Report" >> $GITHUB_STEP_SUMMARY
+          echo "| Vehicle | Build | Test | Deploy |" >> $GITHUB_STEP_SUMMARY
+          echo "|---------|-------|------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Car | $BUILD_CAR | $TEST_CAR | $DEPLOY_CAR |" >> $GITHUB_STEP_SUMMARY
+          echo "| Motorbike | $BUILD_MOTORBIKE | $TEST_MOTORBIKE | $DEPLOY_MOTORBIKE |" >> $GITHUB_STEP_SUMMARY
+          echo "| Truck | $BUILD_TRUCK | $TEST_TRUCK | $DEPLOY_TRUCK |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "All vehicles together (test_all): $TEST_ALL" >> $GITHUB_STEP_SUMMARY
+          echo "## Test details" >> $GITHUB_STEP_SUMMARY
+          echo "| Vehicle | Check | Result |" >> $GITHUB_STEP_SUMMARY
+          echo "|---------|-------|--------|" >> $GITHUB_STEP_SUMMARY
+          cat results/*.md >> $GITHUB_STEP_SUMMARY || echo "No test results found." >> $GITHUB_STEP_SUMMARY
