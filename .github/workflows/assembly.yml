@@ -97,6 +97,8 @@ jobs:
           retention-days: 1
 
       - name: Print assembly plant
+        env:
+          ASSEMBLY_PLANT: "Station 7"
         run: |
           echo "Assembling at: $ASSEMBLY_PLANT"
 
