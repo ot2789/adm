@@ -1,0 +1,154 @@
+name: Deploy Vehicle
+
+on:
+  workflow_call:
+    inputs:
+      vehicle_name:
+        description: Name of the vehicle to deploy (car, motorbike, or truck)
+        type: string
+        required: true
+      fail_vehicle:
+        description: Which vehicle should fail its health check
+        type: string
+        required: false
+        default: none
+    secrets:
+      DEPLOY_TOKEN:
+        required: true
+
+permissions:
+  contents: read
+  deployments: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Create deployment
+        id: create_deployment
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+          VEHICLE: ${{ inputs.vehicle_name }}
+          RUN_NUMBER: ${{ github.run_number }}
+        run: |
+          BODY=$(jq -n \
+            --arg ref "$SHA" \
+            --arg env "production-$VEHICLE" \
+            --arg desc "Deploy $VEHICLE from run #$RUN_NUMBER" \
+            '{ref: $ref, environment: $env, description: $desc,
+              auto_merge: false, required_contexts: []}')
+          echo "Request body:"
+          echo "$BODY"
+          RESPONSE=$(printf '%s' "$BODY" | gh api "repos/$REPO/deployments" \
+            --method POST --input - 2>&1) || true
+          echo "Response:"
+          echo "$RESPONSE"
+          DEPLOYMENT_ID=$(printf '%s' "$RESPONSE" | jq -r '.id // empty')
+          if [ -z "$DEPLOYMENT_ID" ]; then
+            echo "::error title=Deployment not created::No id in the API response"
+            exit 1
+          fi
+          echo "Deployment id: $DEPLOYMENT_ID"
+          echo "deployment_id=$DEPLOYMENT_ID" >> "$GITHUB_OUTPUT"
+
+      - name: Mark deployment in progress
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          DEPLOYMENT_ID: ${{ steps.create_deployment.outputs.deployment_id }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          jq -n --arg log "$RUN_URL" \
+            '{state: "in_progress", log_url: $log, description: "Rollout started"}' \
+            | gh api "repos/$REPO/deployments/$DEPLOYMENT_ID/statuses" \
+                --method POST --input - --jq '.state'
+
+      - name: Download vehicle artifact
+        uses: actions/download-artifact@v7
+        with:
+          name: ${{ inputs.vehicle_name }}-files
+          path: build/
+
+      - name: Authenticate deployment
+        uses: ./.github/actions/authenticate-deployment
+        with:
+          token: ${{ secrets.DEPLOY_TOKEN }}
+
+      - name: Deploy vehicle
+        env:
+          VEHICLE: ${{ inputs.vehicle_name }}
+          FAIL_VEHICLE: ${{ inputs.fail_vehicle }}
+          REPO: ${{ github.repository }}
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          echo "Deploying $VEHICLE to production"
+          cat "build/$VEHICLE.txt"
+
+          if [ "$VEHICLE" = "$FAIL_VEHICLE" ]; then
+            HEALTH_FILE=".github/workflows/assembly-$VEHICLE-broken.yml"
+          else
+            HEALTH_FILE=".github/workflows/assembly.yml"
+          fi
+          URL="https://raw.githubusercontent.com/$REPO/$BRANCH/$HEALTH_FILE"
+          echo "Health endpoint for $VEHICLE: $URL"
+
+          for attempt in 1 2 3; do
+            echo "::group::Health check attempt $attempt of 3"
+            if curl --fail --silent --show-error --max-time 20 \
+                 --output /dev/null "$URL"; then
+              echo "$VEHICLE is healthy"
+              echo "::endgroup::"
+              exit 0
+            fi
+            echo "::warning title=Health check failed::$VEHICLE attempt $attempt returned an error"
+            echo "::endgroup::"
+            sleep 5
+          done
+
+          echo "::error title=Deployment unhealthy::$VEHICLE failed all 3 health checks"
+          exit 1
+
+      - name: Upload failure artifact
+        if: failure()
+        uses: actions/upload-artifact@v6
+        with:
+          name: ${{ inputs.vehicle_name }}-files-failure
+          path: build/${{ inputs.vehicle_name }}.txt
+          retention-days: 3
+
+      - name: Deployment complete
+        if: always()
+        run: echo "Deployment attempt complete for ${{ inputs.vehicle_name }}"
+
+      - name: Mark deployment successful
+        if: success()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          DEPLOYMENT_ID: ${{ steps.create_deployment.outputs.deployment_id }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          VEHICLE: ${{ inputs.vehicle_name }}
+        run: |
+          jq -n --arg log "$RUN_URL" --arg env "https://example.invalid/$VEHICLE" \
+            '{state: "success", log_url: $log, environment_url: $env,
+              description: "Rollout finished"}' \
+            | gh api "repos/$REPO/deployments/$DEPLOYMENT_ID/statuses" \
+                --method POST --input - --jq '.state'
+
+      - name: Mark deployment failed
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          DEPLOYMENT_ID: ${{ steps.create_deployment.outputs.deployment_id }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          jq -n --arg log "$RUN_URL" \
+            '{state: "failure", log_url: $log, description: "Rollout failed"}' \
+            | gh api "repos/$REPO/deployments/$DEPLOYMENT_ID/statuses" \
+                --method POST --input - --jq '.state'

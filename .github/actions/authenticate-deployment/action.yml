@@ -1,0 +1,16 @@
+name: Authenticate Deployment
+description: Authenticate with the deployment system using the provided token
+inputs:
+  token:
+    description: Deployment token
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Authenticate
+      shell: bash
+      env:
+        TOKEN: ${{ inputs.token }}
+      run: |
+        echo "Authenticating with token: $TOKEN"
+        echo "Token length: ${#TOKEN}"

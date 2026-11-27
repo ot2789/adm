@@ -1,0 +1,395 @@
+name: Vehicle Assembly
+run-name: "Assembly #${{ github.run_number }} - fail_vehicle=${{ inputs.fail_vehicle }}"
+
+on:
+  push:
+    branches: [ex9]
+  workflow_dispatch:
+    inputs:
+      fail_vehicle:
+        description: 'Which vehicle should fail its health check'
+        type: choice
+        options:
+          - none
+          - car
+          - motorbike
+          - truck
+        default: none
+
+permissions:
+  contents: read
+  deployments: write
+
+concurrency:
+  group: ${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  ASSEMBLY_PLANT: "Factory A"
+
+jobs:
+  start:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Write summary header
+        run: |
+          echo "## Vehicle Assembly Pipeline" >> $GITHUB_STEP_SUMMARY
+          echo "Assembly started at $(date -u)" >> $GITHUB_STEP_SUMMARY
+
+      - name: Print start message
+        run: echo "Starting assembly of the vehicles"
+
+      - name: Write version to summary
+        run: |
+          echo "App Version: ${{ vars.APP_VERSION }}" >> $GITHUB_STEP_SUMMARY
+
+      - name: Print assembly plant
+        run: |
+          echo "Assembling at: $ASSEMBLY_PLANT"
+
+      - name: Dump github context
+        env:
+          GITHUB_CONTEXT: ${{ toJSON(github) }}
+        run: echo "$GITHUB_CONTEXT"
+
+  build_car:
+    needs: start
+    runs-on: ubuntu-latest
+    container: ubuntu:22.04
+    env:
+      ASSEMBLY_PLANT: "Factory B"
+    outputs:
+      car_tag: ${{ steps.tag_step.outputs.car_tag }}
+    steps:
+      - name: Print assembly plant
+        run: |
+          echo "Assembling at: $ASSEMBLY_PLANT"
+
+      - name: Generate build tag
+        id: tag_step
+        run: echo "car_tag=car-build-${{ github.run_number }}" >> $GITHUB_OUTPUT
+
+      - name: Print build tag
+        run: |
+          echo "Car build tag: ${{ steps.tag_step.outputs.car_tag }}"
+
+      - name: Assemble car
+        run: |
+          mkdir -p build
+          echo "Chassis" > build/car.txt
+          echo "Engine" >> build/car.txt
+          echo "Wheels" >> build/car.txt
+          echo "Body Frame and Doors" >> build/car.txt
+          echo "Lights and Indicators" >> build/car.txt
+          echo "Winter wheels for car" > build/spare_parts_car.txt
+          echo "Car Assembly Completed!"
+          cat build/car.txt
+
+      - name: Create invoice
+        run: echo "Invoice for car" > build/invoice_car.txt
+
+      - name: Upload car artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: car-files
+          path: |
+            build/car.txt
+            build/spare_parts_car.txt
+          retention-days: 1
+
+  build_motorbike:
+    needs: start
+    runs-on: ubuntu-latest
+    steps:
+      - name: Print assembly plant
+        run: |
+          echo "Assembling at: $ASSEMBLY_PLANT"
+
+      - name: Assemble motorbike
+        run: |
+          mkdir -p build
+          echo "Frame" > build/motorbike.txt
+          echo "Engine" >> build/motorbike.txt
+          echo "Wheels" >> build/motorbike.txt
+          echo "Handlebars" >> build/motorbike.txt
+          echo "Seat" >> build/motorbike.txt
+          echo "Fuel Tank" >> build/motorbike.txt
+          echo "Winter wheels for motorbike" > build/spare_parts_motorbike.txt
+          echo "Motorbike Assembly Completed!"
+          cat build/motorbike.txt
+
+      - name: Create invoice
+        run: echo "Invoice for motorbike" > build/invoice_motorbike.txt
+
+      - name: Upload motorbike artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: motorbike-files
+          path: |
+            build/motorbike.txt
+            build/spare_parts_motorbike.txt
+          retention-days: 1
+
+  build_truck:
+    needs: start
+    runs-on: ubuntu-latest
+    steps:
+      - name: Print assembly plant
+        run: |
+          echo "Assembling at: $ASSEMBLY_PLANT"
+
+      - name: Assemble truck
+        run: |
+          mkdir -p build
+          echo "Chassis" > build/truck.txt
+          echo "Engine" >> build/truck.txt
+          echo "Wheels" >> build/truck.txt
+          echo "Cargo Bed" >> build/truck.txt
+          echo "Cabin" >> build/truck.txt
+          echo "Winter wheels for truck" > build/spare_parts_truck.txt
+          echo "Truck Assembly Completed!"
+          cat build/truck.txt
+
+      - name: Create invoice
+        run: echo "Invoice for truck" > build/invoice_truck.txt
+
+      - name: Upload truck artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: truck-files
+          path: |
+            build/truck.txt
+            build/spare_parts_truck.txt
+          retention-days: 1
+
+  test_car:
+    needs: build_car
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download car artifact
+        uses: actions/download-artifact@v7
+        with:
+          name: car-files
+          path: build/
+
+      - name: Test car
+        run: |
+          test -f build/car.txt
+          grep "Engine" build/car.txt
+          grep "car" build/spare_parts_car.txt
+          echo "Car tests passed!"
+
+      - name: Print car tag from build job
+        run: |
+          echo "Testing build: ${{ needs.build_car.outputs.car_tag }}"
+
+  test_motorbike:
+    needs: build_motorbike
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download motorbike artifact
+        uses: actions/download-artifact@v7
+        with:
+          name: motorbike-files
+          path: build/
+
+      - name: Test motorbike
+        run: |
+          test -f build/motorbike.txt
+          grep "Fuel Tank" build/motorbike.txt
+          grep "motorbike" build/spare_parts_motorbike.txt
+          echo "Motorbike tests passed!"
+
+  test_truck:
+    needs: build_truck
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download truck artifact
+        uses: actions/download-artifact@v7
+        with:
+          name: truck-files
+          path: build/
+
+      - name: Test truck
+        run: |
+          test -f build/truck.txt
+          grep "Cargo Bed" build/truck.txt
+          grep "truck" build/spare_parts_truck.txt
+          echo "Truck tests passed!"
+
+  test_all:
+    needs: [build_car, build_motorbike, build_truck]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v7
+        with:
+          merge-multiple: true
+          path: build/
+
+      - name: Test all vehicles present, invoices excluded
+        run: |
+          test -f build/car.txt
+          test -f build/motorbike.txt
+          test -f build/truck.txt
+          test ! -f build/invoice_car.txt
+          test ! -f build/invoice_motorbike.txt
+          test ! -f build/invoice_truck.txt
+          echo "All vehicles assembled and invoices correctly excluded!"
+
+  quality_report:
+    needs: [test_car, test_motorbike, test_truck, build_car]
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v7
+        with:
+          merge-multiple: true
+          path: build/
+
+      - name: Write quality report summary
+        run: |
+          echo "## Quality Report" >> $GITHUB_STEP_SUMMARY
+          echo "Run: #${{ github.run_number }} | Actor: ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Vehicle | File | Status | Build Tag |" >> $GITHUB_STEP_SUMMARY
+          echo "|---------|------|--------|-----------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Car | car.txt | ✅ Present | ${{ needs.build_car.outputs.car_tag }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Motorbike | motorbike.txt | ✅ Present | - |" >> $GITHUB_STEP_SUMMARY
+          echo "| Truck | truck.txt | ✅ Present | - |" >> $GITHUB_STEP_SUMMARY
+
+      - name: Print run metadata
+        run: |
+          echo "Workflow: ${{ github.workflow }}"
+          echo "Run number: ${{ github.run_number }}"
+          echo "Triggered by: ${{ github.actor }}"
+          echo "Branch: ${{ github.ref_name }}"
+          echo "Event: ${{ github.event_name }}"
+
+  compatibility_check:
+    needs: start
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+      fail-fast: false
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Check assembly environment
+        run: |
+          echo "Checking compatibility on ${{ matrix.os }}"
+          echo "Runner OS: ${{ runner.os }}"
+          echo "Run number: ${{ github.run_number }}"
+
+  monitor:
+    needs: [test_car, test_motorbike, test_truck]
+    if: always()
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    timeout-minutes: 10
+    permissions:
+      deployments: read
+    steps:
+      - name: Watch the rollout
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+          RUN_NUMBER: ${{ github.run_number }}
+        run: |
+          for poll in $(seq 1 20); do
+            echo "::group::Poll $poll"
+            printf '%-24s %-14s %s\n' "ENVIRONMENT" "STATE" "DEPLOYMENT"
+            FINAL=0
+            for vehicle in car motorbike truck; do
+              ID=$(gh api "repos/$REPO/deployments?environment=production-$vehicle&sha=$SHA" \
+                     | jq -r --arg d "run #$RUN_NUMBER" \
+                         'map(select(.description | endswith($d))) | .[0].id // empty')
+              if [ -z "$ID" ]; then
+                STATE="not created"
+                ID="-"
+              else
+                STATE=$(gh api "repos/$REPO/deployments/$ID/statuses" \
+                          --jq '.[0].state // "pending"')
+              fi
+              case "$STATE" in
+                success|failure|error|inactive) FINAL=$((FINAL + 1)) ;;
+              esac
+              printf '%-24s %-14s %s\n' "production-$vehicle" "$STATE" "$ID"
+            done
+            echo "::endgroup::"
+            if [ "$FINAL" -eq 3 ]; then
+              echo "All three deployments reached a final state after $poll polls"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "::warning title=Monitor timed out::Not all deployments finished within 20 polls"
+
+  deploy_car:
+    needs: test_car
+    if: github.ref_name == 'ex9'
+    uses: ./.github/workflows/deploy-vehicle.yml
+    with:
+      vehicle_name: car
+      fail_vehicle: ${{ inputs.fail_vehicle }}
+    secrets:
+      DEPLOY_TOKEN: ${{ secrets.DEPLOY_TOKEN }}
+
+  deploy_motorbike:
+    needs: test_motorbike
+    if: github.ref_name == 'ex9'
+    uses: ./.github/workflows/deploy-vehicle.yml
+    with:
+      vehicle_name: motorbike
+      fail_vehicle: ${{ inputs.fail_vehicle }}
+    secrets:
+      DEPLOY_TOKEN: ${{ secrets.DEPLOY_TOKEN }}
+
+  deploy_truck:
+    needs: test_truck
+    if: github.ref_name == 'ex9'
+    uses: ./.github/workflows/deploy-vehicle.yml
+    with:
+      vehicle_name: truck
+      fail_vehicle: ${{ inputs.fail_vehicle }}
+    secrets:
+      DEPLOY_TOKEN: ${{ secrets.DEPLOY_TOKEN }}
+
+  deployment_report:
+    needs: [deploy_car, deploy_motorbike, deploy_truck]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Build the deployment dashboard
+        env:
+          CAR: ${{ needs.deploy_car.result }}
+          MOTORBIKE: ${{ needs.deploy_motorbike.result }}
+          TRUCK: ${{ needs.deploy_truck.result }}
+          FAIL_VEHICLE: ${{ inputs.fail_vehicle }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          icon() {
+            case "$1" in
+              success) echo "PASSED" ;;
+              failure) echo "FAILED" ;;
+              skipped) echo "SKIPPED" ;;
+              *) echo "$1" ;;
+            esac
+          }
+          {
+            echo "## Deployment report"
+            echo ""
+            echo "Run: [#${GITHUB_RUN_NUMBER}]($RUN_URL) | Triggered by: @${GITHUB_ACTOR}"
+            echo "Failure injected into: \`${FAIL_VEHICLE:-none}\`"
+            echo ""
+            echo "| Vehicle | Environment | Result |"
+            echo "|---------|-------------|--------|"
+            echo "| car | production-car | $(icon "$CAR") |"
+            echo "| motorbike | production-motorbike | $(icon "$MOTORBIKE") |"
+            echo "| truck | production-truck | $(icon "$TRUCK") |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "$CAR" = "failure" ] || [ "$MOTORBIKE" = "failure" ] || [ "$TRUCK" = "failure" ]; then
+            echo "::error title=Partial rollout::At least one vehicle failed to deploy while others succeeded"
+          fi
