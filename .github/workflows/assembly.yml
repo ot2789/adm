@@ -36,6 +36,9 @@ jobs:
       - name: Print start message
         run: echo "Starting assembly of the vehicles"
 
+      - name: Print concurrency group
+        run: echo "Concurrency group (github.ref) = ${{ github.ref }}"
+
       - name: Print manual run info
         if: github.event_name == 'workflow_dispatch'
         run: |
