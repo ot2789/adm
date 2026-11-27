@@ -44,6 +44,9 @@ jobs:
         run: |
           echo "Manual run: deploying $VEHICLE to $ENVIRONMENT"
 
+      - name: Dump github context
+        run: echo '${{ toJSON(github) }}'
+
   build_car:
     needs: start
     runs-on: ubuntu-latest
