@@ -42,3 +42,13 @@ jobs:
         run: |
           echo "## Written just before the step failed" >> $GITHUB_STEP_SUMMARY
           exit 1
+
+  too_big:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Write more than the limit
+        run: |
+          for i in $(seq 1 22000); do
+            echo "line $i - padding padding padding padding padding" >> $GITHUB_STEP_SUMMARY
+          done
+          echo "BYTES WRITTEN: $(wc -c < $GITHUB_STEP_SUMMARY)"
