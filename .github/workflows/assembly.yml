@@ -168,6 +168,7 @@ jobs:
           echo "Motorbike tests passed!"
 
   test_truck:
+    needs: build_truck
     runs-on: ubuntu-latest
     steps:
       - name: Download truck artifact
