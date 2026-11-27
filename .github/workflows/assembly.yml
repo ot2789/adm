@@ -220,6 +220,7 @@ jobs:
 
       - name: Deploy car
         run: |
+          exit 1
           echo "Deploying car to production"
           cat build/car.txt
 
@@ -230,6 +231,10 @@ jobs:
           name: car-files-failure
           path: build/car.txt
           retention-days: 3
+
+      - name: Deployment complete
+        if: always()
+        run: echo "Deployment attempt complete for car"
 
   deploy_motorbike:
     needs: test_motorbike
@@ -254,6 +259,10 @@ jobs:
           path: build/motorbike.txt
           retention-days: 3
 
+      - name: Deployment complete
+        if: always()
+        run: echo "Deployment attempt complete for motorbike"
+
   deploy_truck:
     needs: test_truck
     runs-on: ubuntu-latest
@@ -276,6 +285,10 @@ jobs:
           name: truck-files-failure
           path: build/truck.txt
           retention-days: 3
+
+      - name: Deployment complete
+        if: always()
+        run: echo "Deployment attempt complete for truck"
 
   quality_report:
     needs: [build_car, build_motorbike, build_truck, test_car, test_motorbike, test_truck, test_all, deploy_car, deploy_motorbike, deploy_truck]
