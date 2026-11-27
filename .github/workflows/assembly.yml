@@ -176,7 +176,7 @@ jobs:
             echo "| Truck | $1 | $result |" >> results/truck.md
           }
           check "truck.txt exists" test -f build/truck.txt
-          check "Cargo Bed in truck.txt" grep -q "Cargo Bed" build/truck.txt
+          check "Cargo Bay in truck.txt" grep -q "Cargo Bay" build/truck.txt
           check "spare parts list" grep -q "truck" build/spare_parts_truck.txt
           cat results/truck.md
           ! grep -qF "| fail |" results/truck.md
