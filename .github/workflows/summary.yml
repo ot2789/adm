@@ -23,3 +23,8 @@ jobs:
 
       - name: Step two also writes
         run: echo "written by step two" >> $GITHUB_STEP_SUMMARY
+
+      - name: Step three overwrites its own file
+        run: |
+          echo "this line is written first" >> $GITHUB_STEP_SUMMARY
+          echo "and this single-caret line replaced it" > $GITHUB_STEP_SUMMARY
