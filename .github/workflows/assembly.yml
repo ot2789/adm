@@ -3,6 +3,9 @@ name: Vehicle Assembly
 on:
   push:
     branches: [ex3]
+    paths:
+      - '.github/workflows/**'
+      - 'vehicles/**'
   workflow_dispatch:
 
 jobs:
