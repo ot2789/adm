@@ -20,6 +20,10 @@ on:
         type: string
         default: 'all'
 
+concurrency:
+  group: ${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   start:
     runs-on: ubuntu-latest
