@@ -9,6 +9,9 @@ concurrency:
   group: ${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  ASSEMBLY_PLANT: "Factory A"
+
 jobs:
   start:
     runs-on: ubuntu-latest
@@ -25,9 +28,15 @@ jobs:
         run: |
           echo "App Version: ${{ vars.APP_VERSION }}" >> $GITHUB_STEP_SUMMARY
 
+      - name: Print assembly plant
+        run: |
+          echo "Assembling at: $ASSEMBLY_PLANT"
+
   build_car:
     needs: start
     runs-on: ubuntu-latest
+    env:
+      ASSEMBLY_PLANT: "Factory B"
     container: ubuntu:22.04
     steps:
       - name: Assemble car
@@ -53,6 +62,10 @@ jobs:
             build/car.txt
             build/spare_parts_car.txt
           retention-days: 1
+
+      - name: Print assembly plant
+        run: |
+          echo "Assembling at: $ASSEMBLY_PLANT"
 
   build_motorbike:
     needs: start
@@ -83,6 +96,10 @@ jobs:
             build/spare_parts_motorbike.txt
           retention-days: 1
 
+      - name: Print assembly plant
+        run: |
+          echo "Assembling at: $ASSEMBLY_PLANT"
+
   build_truck:
     needs: start
     runs-on: ubuntu-latest
@@ -110,6 +127,10 @@ jobs:
             build/truck.txt
             build/spare_parts_truck.txt
           retention-days: 1
+
+      - name: Print assembly plant
+        run: |
+          echo "Assembling at: $ASSEMBLY_PLANT"
 
   test_car:
     needs: build_car
