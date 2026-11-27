@@ -29,7 +29,6 @@ jobs:
           path: |
             build/car.txt
             build/spare_parts_car.txt
-            build/invoice_car.txt
           retention-days: 1
 
   build_motorbike:
