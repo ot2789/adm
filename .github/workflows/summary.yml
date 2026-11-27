@@ -74,7 +74,7 @@ jobs:
             echo "- [ ] not done"
             echo
             echo "## Image from the internet"
-            echo "![octocat](https://github.githubassets.com/images/modules/logos_page/Octocat.png)"
+            echo "![securitocat](https://octodex.github.com/images/securitocat.png)"
             echo
             echo "## Collapsible"
             echo "<details><summary>click me</summary>"
