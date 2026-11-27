@@ -90,7 +90,6 @@ jobs:
     steps:
       - name: Assemble truck
         run: |
-          sleep 25
           mkdir -p build
           echo "Chassis" > build/truck.txt
           echo "Engine" >> build/truck.txt
@@ -109,6 +108,7 @@ jobs:
           retention-days: 1
 
   test_truck:
+    needs: build_truck
     runs-on: ubuntu-latest
     steps:
       - name: Download truck artifact
