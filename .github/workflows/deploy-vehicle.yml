@@ -1,0 +1,47 @@
+name: Deploy Vehicle
+
+on:
+  workflow_call:
+    inputs:
+      vehicle_name:
+        description: Name of the vehicle to deploy (car, motorbike, or truck)
+        type: string
+        required: true
+    secrets:
+      DEPLOY_TOKEN:
+        required: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download vehicle artifact
+        uses: actions/download-artifact@v7
+        with:
+          name: ${{ inputs.vehicle_name }}-files
+          path: build/
+
+      - name: Authenticate deployment
+        uses: ./.github/actions/authenticate-deployment
+        with:
+          token: ${{ secrets.DEPLOY_TOKEN }}
+
+      - name: Deploy vehicle
+        run: |
+          echo "Deploying ${{ inputs.vehicle_name }} to production"
+          cat build/${{ inputs.vehicle_name }}.txt
+
+      - name: Upload failure artifact
+        if: failure()
+        uses: actions/upload-artifact@v6
+        with:
+          name: ${{ inputs.vehicle_name }}-files-failure
+          path: build/${{ inputs.vehicle_name }}.txt
+          retention-days: 3
+
+      - name: Deployment complete
+        if: always()
+        run: echo "Deployment attempt complete for ${{ inputs.vehicle_name }}"
