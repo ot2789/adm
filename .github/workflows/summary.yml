@@ -75,6 +75,7 @@ jobs:
             echo
             echo "## Image from the internet"
             echo "![securitocat](https://octodex.github.com/images/securitocat.png)"
+            echo "![untrusted](https://upload.wikimedia.org/wikipedia/commons/4/47/PNG_transparency_demonstration_1.png)"
             echo
             echo "## Collapsible"
             echo "<details><summary>click me</summary>"
